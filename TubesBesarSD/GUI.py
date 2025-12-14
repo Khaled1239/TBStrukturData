@@ -3,6 +3,79 @@ from ttkbootstrap.constants import *
 import tkinter as tk
 from PIL import Image, ImageTk
 
+from Class import Song
+from Database import Database
+
+
+# ================= ADD SONG CHILD WINDOW =================
+class AddSongWindow(tk.Toplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("Add Song")
+        self.geometry("500x500")
+        self.resizable(False, False)
+
+        self.db = Database()
+
+        self.create_form()
+
+    def create_form(self):
+        ttk.Label(self, text="Add New Song", font=("Segoe UI", 18, "bold")).pack(pady=20)
+
+        self.entries = {}
+
+        fields = [
+            ("Song ID", "SongID"),
+            ("Title", "Title"),
+            ("Artist", "Artist"),
+            ("Year", "Year"),
+            ("File Path", "Path"),
+            ("Duration", "Duration")
+        ]
+
+        for label, key in fields:
+            frame = ttk.Frame(self)
+            frame.pack(fill=X, padx=30, pady=5)
+
+            ttk.Label(frame, text=label, width=12).pack(side=LEFT)
+            entry = ttk.Entry(frame)
+            entry.pack(side=LEFT, fill=X, expand=True)
+
+            self.entries[key] = entry
+
+        ttk.Button(
+            self,
+            text="Save Song",
+            bootstyle="success",
+            command=self.save_song
+        ).pack(pady=25)
+
+    def save_song(self):
+        try:
+            song = Song(
+                SongID=self.entries["SongID"].get(),
+                Title=self.entries["Title"].get(),
+                Artist=self.entries["Artist"].get(),
+                Year=int(self.entries["Year"].get()),
+                Path=self.entries["Path"].get(),
+                Duration=int(self.entries["Duration"].get() or 0)
+            )
+
+            self.db.AddSong(song)
+            ttk.ToastNotification(
+                title="Success",
+                message="Song added successfully",
+                duration=3000
+            ).show_toast()
+
+            self.destroy()
+
+        except Exception as e:
+            ttk.ToastNotification(
+                title="Error",
+                message=str(e),
+                duration=3000
+            ).show_toast()
 
 # ================= ADMIN WINDOW =================
 class AdminWindow(ttk.Window):
@@ -24,9 +97,26 @@ class AdminWindow(ttk.Window):
         ttk.Label(self, image=self.bg_photo).place(
             x=0, y=0, relwidth=1, relheight=1
         )
+        ttk.Button(
+            self,
+            text="Add Song",
+            bootstyle="info",
+            width=20,
+            command=self.AddSongW
+        ).pack(anchor=W, padx=40, pady=20)
 
-
+    def AddSongW(self):
+        AddSongWindow(self)
 # ================= USER WINDOW =================
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import *
+import threading
+from PIL import Image, ImageTk
+
+from Core import MusicCore
+from Clap import ClapControl
+
+
 class UserWindow(ttk.Window):
     def __init__(self):
         super().__init__(themename="darkly")
@@ -34,7 +124,12 @@ class UserWindow(ttk.Window):
         self.geometry("1920x1080")
         self.resizable(False, False)
 
+        # Core Music Player
+        self.core = MusicCore()
+
         self.show_user_ui()
+        self.create_player_controls()
+        self.start_clap_control()
 
     def show_user_ui(self):
         bg_img = Image.open(
@@ -47,6 +142,57 @@ class UserWindow(ttk.Window):
             x=0, y=0, relwidth=1, relheight=1
         )
 
+    # ================= PLAYER BUTTONS =================
+    def create_player_controls(self):
+        btn_y = 900   # posisi Y tombol (sesuaikan kalau perlu)
+
+        ttk.Button(
+            self,
+            text="Play",
+            width=10,
+            bootstyle="success",
+            command=self.core.play_current
+        ).place(x=650, y=btn_y)
+
+        ttk.Button(
+            self,
+            text="Pause",
+            width=10,
+            bootstyle="warning",
+            command=self.core.pause
+        ).place(x=760, y=btn_y)
+
+        ttk.Button(
+            self,
+            text="Resume",
+            width=10,
+            bootstyle="info",
+            command=self.core.resume
+        ).place(x=870, y=btn_y)
+
+        ttk.Button(
+            self,
+            text="Prev",
+            width=10,
+            bootstyle="secondary",
+            command=self.core.prev_song
+        ).place(x=980, y=btn_y)
+
+        ttk.Button(
+            self,
+            text="Next",
+            width=10,
+            bootstyle="primary",
+            command=self.core.next_song
+        ).place(x=1090, y=btn_y)
+
+    # ================= CLAP CONTROL =================
+    def start_clap_control(self):
+        clap = ClapControl(self.core)
+        threading.Thread(
+            target=clap.listen,
+            daemon=True
+        ).start()
 
 # ================= LOGIN WINDOW =================
 class App(ttk.Window):
