@@ -9,6 +9,13 @@ from Class import Song
 from Database import Database
 from Core import MusicCore
 from Clap import ClapControl
+import os
+
+
+
+BASE = os.path.dirname(os.path.abspath(__file__)) 
+
+
 
 class LibraryWindow(tk.Toplevel):
     def __init__(self, parent):
@@ -100,6 +107,7 @@ class AddSongWindow(tk.Toplevel):
             ("Artist", "Artist"),
             ("Year", "Year"),
             ("File Path", "Path"),
+            ("Genre", "Genre"),
             ("Duration", "Duration")
         ]
 
@@ -161,12 +169,18 @@ class AdminWindow(ttk.Window):
         self.LoadButtonImages()
         self.CreateButtons()
 
+    
+    def Logout(self):
+        self.destroy()
+        App().mainloop()
+
+
     def SetupBackground(self):
         self.canvas = tk.Canvas(self, width=1920, height=1080, highlightthickness=0)
         self.canvas.place(x=0, y=0)
 
         bg = Image.open(
-            "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN ADMIN/Background.png"
+            BASE + "/TUBES BESAR LUNA/HALAMAN ADMIN/Background.png"
         ).resize((1920, 1080))
 
         self.bg_photo = ImageTk.PhotoImage(bg)
@@ -175,13 +189,17 @@ class AdminWindow(ttk.Window):
     def LoadButtonImages(self):
         self.addsong_img = ImageTk.PhotoImage(
             Image.open(
-                "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN ADMIN/BUTTON/BAddMusic.png"
+                BASE + "/TUBES BESAR LUNA/HALAMAN ADMIN/BUTTON/BAddMusic.png"
             ).resize((750, 280))
+        )
+
+        self.logout_img = ImageTk.PhotoImage(
+            Image.open(BASE + "/TUBES BESAR LUNA/BLogout.png").resize((140, 70))
         )
 
         self.library_img = ImageTk.PhotoImage(
             Image.open(
-                "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN ADMIN//BUTTON/BLibrary.png"
+                BASE + "/TUBES BESAR LUNA/HALAMAN ADMIN/BUTTON/BLibrary.png"
             ).resize((750, 280))
         )
 
@@ -189,6 +207,12 @@ class AdminWindow(ttk.Window):
         self.btn_addsong = self.canvas.create_image(
             600, 755,
             image=self.addsong_img,
+            anchor="center"
+        )
+
+        self.btn_logout = self.canvas.create_image(
+            985, 940,
+            image=self.logout_img,
             anchor="center"
         )
 
@@ -210,6 +234,11 @@ class AdminWindow(ttk.Window):
             lambda e: self.OpenLibrary()
         )
 
+        self.canvas.tag_bind(
+            self.btn_logout,
+            "<Button-1>",
+            lambda e: self.Logout()
+        )
     def OpenAddSong(self):
         AddSongWindow(self)
 
@@ -239,6 +268,11 @@ class UserWindow(ttk.Window):
 
         self.after(500, self.CheckEnd)
 
+
+    def Logout(self):
+        self.destroy()
+        App().mainloop()
+
     def SetupCanvas(self):
         self.canvas = tk.Canvas(
             self,
@@ -249,8 +283,7 @@ class UserWindow(ttk.Window):
         self.canvas.pack(fill="both", expand=True)
 
         bg = Image.open(
-            "C:/Users/HP/PycharmProjects/TubesBesarSD/"
-            "TUBES BESAR LUNA/HALAMAN USER/background_user_update.png"
+            BASE + "/TUBES BESAR LUNA/HALAMAN USER/background_user_update.png"
         ).resize((1920, 1080))
 
         self.bg_img = ImageTk.PhotoImage(bg)
@@ -260,11 +293,11 @@ class UserWindow(ttk.Window):
             0, 0, anchor="nw", image=self.bg_img
         )
     def LoadImages(self):
-        base = "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN USER/"
+        base = BASE + "/TUBES BESAR LUNA/HALAMAN USER/"
 
         BTN = (70, 70)
-        PLAY = (110, 110)
-        MENU = (260, 70)
+        PLAY = (70, 70)
+        MENU = (380, 260)
 
         self.img_search = ImageTk.PhotoImage(
             Image.open(base + "BUTTON_Search(1).png").resize(MENU)
@@ -289,24 +322,35 @@ class UserWindow(ttk.Window):
             Image.open(base + "NEXT.png").resize(BTN)
         )
 
+        self.logout_img = ImageTk.PhotoImage(
+            Image.open(BASE + "/TUBES BESAR LUNA/BLogout.png").resize((140, 70))
+        )
+
     def CreateButtons(self):
         # ===== TOP MENU =====
         self.btn_create = self.canvas.create_image(
-            350, 140, image=self.img_create, anchor="center"
+            480, 700, image=self.img_create, anchor="center"
         )
         self.btn_library = self.canvas.create_image(
-            650, 140, image=self.img_library, anchor="center"
+            960, 700, image=self.img_library, anchor="center"
         )
         self.btn_search = self.canvas.create_image(
-            950, 140, image=self.img_search, anchor="center"
+            1440, 700, image=self.img_search, anchor="center"
         )
 
-        y = 930
-        self.btn_prev = self.canvas.create_image(760, y, image=self.img_prev)
-        self.btn_play = self.canvas.create_image(900, y, image=self.img_play)
-        self.btn_pause = self.canvas.create_image(1040, y, image=self.img_pause)
-        self.btn_next = self.canvas.create_image(1180, y, image=self.img_next)
+        self.btn_logout = self.canvas.create_image(
+            1665, 965,
+            image=self.logout_img,
+            anchor="center"
+        )
 
+        y = 965
+        self.btn_prev = self.canvas.create_image(720, y, image=self.img_prev)
+        self.btn_play = self.canvas.create_image(880, y, image=self.img_play)
+        self.btn_pause = self.canvas.create_image(1040, y, image=self.img_pause)
+        self.btn_next = self.canvas.create_image(1200, y, image=self.img_next)
+
+        
         self.canvas.tag_raise(self.btn_create)
         self.canvas.tag_raise(self.btn_library)
         self.canvas.tag_raise(self.btn_search)
@@ -314,7 +358,8 @@ class UserWindow(ttk.Window):
         self.canvas.tag_raise(self.btn_play)
         self.canvas.tag_raise(self.btn_pause)
         self.canvas.tag_raise(self.btn_next)
-
+        self.canvas.tag_bind(self.btn_logout,"<Button-1>",
+                             lambda e: self.Logout())
         self.canvas.tag_bind(self.btn_create, "<Button-1>",
                              lambda e: self.CreatePlaylist())
         self.canvas.tag_bind(self.btn_library, "<Button-1>",
@@ -373,7 +418,7 @@ class App(ttk.Window):
         self.resizable(False, False)
 
         bg = Image.open(
-            "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN LOGIN/LoginBG.png"
+            BASE + "/TUBES BESAR LUNA/HALAMAN LOGIN/LoginBG.png"
         ).resize((1920, 1080))
         self.bg_photo = ImageTk.PhotoImage(bg)
 
@@ -385,24 +430,24 @@ class App(ttk.Window):
 
     def LoadButtons(self):
         self.admin_img = ImageTk.PhotoImage(Image.open(
-            "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN LOGIN/AdminB.png"
+            BASE + "/TUBES BESAR LUNA/HALAMAN LOGIN/AdminB.png"
         ).resize((320, 120)))
 
         self.user_img = ImageTk.PhotoImage(Image.open(
-            "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN LOGIN/UserB.png"
+            BASE + "/TUBES BESAR LUNA/HALAMAN LOGIN/UserB.png"
         ).resize((320, 120)))
 
         tk.Button(
             self, image=self.admin_img,
             borderwidth=0,
             command=self.OpenAdmin
-        ).place(x=615, y=520, anchor="center")
+        ).place(x=619, y=519, anchor="center")
 
         tk.Button(
             self, image=self.user_img,
             borderwidth=0,
             command=self.OpenUser
-        ).place(x=1260, y=520, anchor="center")
+        ).place(x=1259, y=519, anchor="center")
 
     def OpenAdmin(self):
         self.destroy()
