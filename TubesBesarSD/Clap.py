@@ -6,29 +6,28 @@ import time
 class ClapControl:
     def __init__(self, core):
         self.core = core
-        self.threshold = 0.6
         self.claps = 0
-        self.last_time = time.time()
+        self.last = time.time()
 
-    def audio_callback(self, indata, frames, time_info, status):
+    def Callback(self, indata, frames, timeinfo, status):
         volume = np.linalg.norm(indata)
-        if volume > self.threshold:
+        if volume > 0.6:
             now = time.time()
-            if now - self.last_time > 0.3:
+            if now - self.last > 0.3:
                 self.claps += 1
-                self.last_time = now
+                self.last = now
 
-    def listen(self):
-        with sd.InputStream(callback=self.audio_callback):
+    def Listen(self):
+        with sd.InputStream(callback=self.Callback):
             while True:
                 time.sleep(1)
-                self.process_claps()
+                self.Process()
 
-    def process_claps(self):
+    def Process(self):
         if self.claps == 1:
-            self.core.pause()
+            self.core.Pause()
         elif self.claps == 2:
-            self.core.next_song()
+            self.core.PlayNext()
         elif self.claps == 3:
-            self.core.prev_song()
+            self.core.Prev()
         self.claps = 0

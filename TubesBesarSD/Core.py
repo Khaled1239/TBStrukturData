@@ -1,52 +1,60 @@
 import pygame
+import random
 from Class import DoubleLinkedList, HistoryStack, Queue
 from Database import Database
-
 
 class MusicCore:
     def __init__(self):
         pygame.mixer.init()
+        pygame.mixer.music.set_endevent(pygame.USEREVENT)
 
         self.db = Database()
         self.playlist = DoubleLinkedList()
         self.history = HistoryStack()
         self.queue = Queue()
+        self.CurrentSong = None
 
-        # Load playlist dari database
+        self.LoadLibrary()
+
+    def LoadLibrary(self):
         for song in self.db.GetAll():
             self.playlist.AddLast(song)
 
-    def play_song(self, song):
+    def Play(self, song):
+        if not song:
+            return
         pygame.mixer.music.load(song.Path)
         pygame.mixer.music.play()
-        self.history.Push(song.SongID)
+        self.CurrentSong = song
+        self.history.Push(song)
 
-    def play_current(self):
-        song = self.playlist.Current()
-        if song:
-            self.play_song(song)
+    def PlayCurrent(self):
+        self.Play(self.playlist.Current())
 
-    def pause(self):
+    def Pause(self):
         pygame.mixer.music.pause()
 
-    def resume(self):
+    def Resume(self):
         pygame.mixer.music.unpause()
 
-    def next_song(self):
-        # Prioritas queue
-        if self.queue.data:
-            song_id = self.queue.Dequeue()
-            song = self.db.songs.get(song_id)
-            if song:
-                self.play_song(song)
+    def Prev(self):
+        self.Play(self.playlist.PrevSong())
+
+    def SetQueue(self, songs):
+        self.queue = Queue()
+        for s in songs:
+            self.queue.Enqueue(s)
+
+    def PlayNext(self):
+        if not self.queue.IsEmpty():
+            self.Play(self.queue.Dequeue())
+            return
+
+        if self.CurrentSong:
+            same = self.db.GetByGenre(self.CurrentSong.Genre)
+            same = [s for s in same if s.SongID != self.CurrentSong.SongID]
+            if same:
+                self.Play(random.choice(same))
                 return
 
-        # Fallback ke playlist
-        song = self.playlist.NextSong()
-        if song:
-            self.play_song(song)
-
-    def prev_song(self):
-        song = self.playlist.PrevSong()
-        if song:
-            self.play_song(song)
+        self.Play(self.playlist.NextSong())

@@ -2,12 +2,85 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 import tkinter as tk
 from PIL import Image, ImageTk
-
+import threading
+import pygame
+from tkinter import simpledialog, messagebox
 from Class import Song
 from Database import Database
+from Core import MusicCore
+from Clap import ClapControl
+
+class LibraryWindow(tk.Toplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("Library Manager")
+        self.geometry("900x600")
+        self.resizable(False, False)
+
+        self.db = Database()
+
+        ttk.Label(
+            self,
+            text="Library & Playlist Manager",
+            font=("Segoe UI", 18, "bold")
+        ).pack(pady=10)
+
+        self.playlist_box = tk.Listbox(self, width=40, height=20)
+        self.playlist_box.pack(side=LEFT, padx=20, pady=20)
+
+        self.song_box = tk.Listbox(self, width=40, height=20)
+        self.song_box.pack(side=LEFT, padx=20, pady=20)
+
+        btn_frame = ttk.Frame(self)
+        btn_frame.pack(side=LEFT, fill=Y, padx=10)
+
+        ttk.Button(
+            btn_frame,
+            text="Create Playlist",
+            command=self.CreatePlaylist
+        ).pack(pady=5)
+
+        ttk.Button(
+            btn_frame,
+            text="Add Song to Playlist",
+            command=self.AddSongToPlaylist
+        ).pack(pady=5)
+
+        self.LoadSongs()
+
+    def LoadSongs(self):
+        self.song_box.delete(0, END)
+        for song in self.db.GetAll():
+            self.song_box.insert(END, f"{song.Title} - {song.Artist}")
+
+    def CreatePlaylist(self):
+        name = tk.simpledialog.askstring(
+            "Playlist",
+            "Enter playlist name:"
+        )
+        if name:
+            self.playlist_box.insert(END, name)
+
+    def AddSongToPlaylist(self):
+        p = self.playlist_box.curselection()
+        s = self.song_box.curselection()
+
+        if not p or not s:
+            ttk.ToastNotification(
+                title="Error",
+                message="Select playlist & song",
+                duration=2000
+            ).show_toast()
+            return
+
+        ttk.ToastNotification(
+            title="Success",
+            message="Song added to playlist",
+            duration=2000
+        ).show_toast()
 
 
-# ================= ADD SONG CHILD WINDOW =================
+
 class AddSongWindow(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
@@ -16,13 +89,10 @@ class AddSongWindow(tk.Toplevel):
         self.resizable(False, False)
 
         self.db = Database()
-
-        self.create_form()
-
-    def create_form(self):
-        ttk.Label(self, text="Add New Song", font=("Segoe UI", 18, "bold")).pack(pady=20)
-
         self.entries = {}
+
+        ttk.Label(self, text="Add New Song",
+                  font=("Segoe UI", 18, "bold")).pack(pady=20)
 
         fields = [
             ("Song ID", "SongID"),
@@ -35,7 +105,7 @@ class AddSongWindow(tk.Toplevel):
 
         for label, key in fields:
             frame = ttk.Frame(self)
-            frame.pack(fill=X, padx=30, pady=5)
+            frame.pack(fill=X, padx=30, pady=6)
 
             ttk.Label(frame, text=label, width=12).pack(side=LEFT)
             entry = ttk.Entry(frame)
@@ -47,10 +117,10 @@ class AddSongWindow(tk.Toplevel):
             self,
             text="Save Song",
             bootstyle="success",
-            command=self.save_song
-        ).pack(pady=25)
+            command=self.SaveSong
+        ).pack(pady=30)
 
-    def save_song(self):
+    def SaveSong(self):
         try:
             song = Song(
                 SongID=self.entries["SongID"].get(),
@@ -58,13 +128,15 @@ class AddSongWindow(tk.Toplevel):
                 Artist=self.entries["Artist"].get(),
                 Year=int(self.entries["Year"].get()),
                 Path=self.entries["Path"].get(),
-                Duration=int(self.entries["Duration"].get() or 0)
+                Duration=int(self.entries["Duration"].get() or 0),
+                Genre=self.entries["Genre"].get()
             )
 
             self.db.AddSong(song)
+
             ttk.ToastNotification(
                 title="Success",
-                message="Song added successfully",
+                message="Song saved to database",
                 duration=3000
             ).show_toast()
 
@@ -77,7 +149,7 @@ class AddSongWindow(tk.Toplevel):
                 duration=3000
             ).show_toast()
 
-# ================= ADMIN WINDOW =================
+
 class AdminWindow(ttk.Window):
     def __init__(self):
         super().__init__(themename="darkly")
@@ -85,116 +157,214 @@ class AdminWindow(ttk.Window):
         self.geometry("1920x1080")
         self.resizable(False, False)
 
-        self.show_admin_ui()
+        self.SetupBackground()
+        self.LoadButtonImages()
+        self.CreateButtons()
 
-    def show_admin_ui(self):
-        bg_img = Image.open(
+    def SetupBackground(self):
+        self.canvas = tk.Canvas(self, width=1920, height=1080, highlightthickness=0)
+        self.canvas.place(x=0, y=0)
+
+        bg = Image.open(
             "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN ADMIN/Background.png"
-        )
-        bg_img = bg_img.resize((1920, 1080))
-        self.bg_photo = ImageTk.PhotoImage(bg_img)
+        ).resize((1920, 1080))
 
-        ttk.Label(self, image=self.bg_photo).place(
-            x=0, y=0, relwidth=1, relheight=1
-        )
-        ttk.Button(
-            self,
-            text="Add Song",
-            bootstyle="info",
-            width=20,
-            command=self.AddSongW
-        ).pack(anchor=W, padx=40, pady=20)
+        self.bg_photo = ImageTk.PhotoImage(bg)
+        self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
 
-    def AddSongW(self):
+    def LoadButtonImages(self):
+        self.addsong_img = ImageTk.PhotoImage(
+            Image.open(
+                "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN ADMIN/BUTTON/BAddMusic.png"
+            ).resize((750, 280))
+        )
+
+        self.library_img = ImageTk.PhotoImage(
+            Image.open(
+                "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN ADMIN//BUTTON/BLibrary.png"
+            ).resize((750, 280))
+        )
+
+    def CreateButtons(self):
+        self.btn_addsong = self.canvas.create_image(
+            600, 755,
+            image=self.addsong_img,
+            anchor="center"
+        )
+
+        self.btn_library = self.canvas.create_image(
+            1375, 755,
+            image=self.library_img,
+            anchor="center"
+        )
+
+        self.canvas.tag_bind(
+            self.btn_addsong,
+            "<Button-1>",
+            lambda e: self.OpenAddSong()
+        )
+
+        self.canvas.tag_bind(
+            self.btn_library,
+            "<Button-1>",
+            lambda e: self.OpenLibrary()
+        )
+
+    def OpenAddSong(self):
         AddSongWindow(self)
-# ================= USER WINDOW =================
-import ttkbootstrap as ttk
-from ttkbootstrap.constants import *
-import threading
-from PIL import Image, ImageTk
 
-from Core import MusicCore
-from Clap import ClapControl
+    def OpenLibrary(self):
+        LibraryWindow(self)
+
+
+
 
 
 class UserWindow(ttk.Window):
     def __init__(self):
         super().__init__(themename="darkly")
+
         self.title("LUNA - User")
         self.geometry("1920x1080")
         self.resizable(False, False)
 
-        # Core Music Player
+        pygame.init()
+
         self.core = MusicCore()
+        self.db = Database()
 
-        self.show_user_ui()
-        self.create_player_controls()
-        self.start_clap_control()
+        self.SetupCanvas()
+        self.LoadImages()
+        self.CreateButtons()
 
-    def show_user_ui(self):
-        bg_img = Image.open(
-            "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN USER/background_user_update.png"
+        self.after(500, self.CheckEnd)
+
+    def SetupCanvas(self):
+        self.canvas = tk.Canvas(
+            self,
+            width=1920,
+            height=1080,
+            highlightthickness=0
         )
-        bg_img = bg_img.resize((1920, 1080))
-        self.bg_photo = ImageTk.PhotoImage(bg_img)
+        self.canvas.pack(fill="both", expand=True)
 
-        ttk.Label(self, image=self.bg_photo).place(
-            x=0, y=0, relwidth=1, relheight=1
+        bg = Image.open(
+            "C:/Users/HP/PycharmProjects/TubesBesarSD/"
+            "TUBES BESAR LUNA/HALAMAN USER/background_user_update.png"
+        ).resize((1920, 1080))
+
+        self.bg_img = ImageTk.PhotoImage(bg)
+
+        # ⬇️ SIMPAN ID BACKGROUND
+        self.bg_id = self.canvas.create_image(
+            0, 0, anchor="nw", image=self.bg_img
+        )
+    def LoadImages(self):
+        base = "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN USER/"
+
+        BTN = (70, 70)
+        PLAY = (110, 110)
+        MENU = (260, 70)
+
+        self.img_search = ImageTk.PhotoImage(
+            Image.open(base + "BUTTON_Search(1).png").resize(MENU)
+        )
+        self.img_create = ImageTk.PhotoImage(
+            Image.open(base + "BUTTON_CreatePlaylist.png").resize(MENU)
+        )
+        self.img_library = ImageTk.PhotoImage(
+            Image.open(base + "BUTTON_Library.png").resize(MENU)
         )
 
-    # ================= PLAYER BUTTONS =================
-    def create_player_controls(self):
-        btn_y = 900   # posisi Y tombol (sesuaikan kalau perlu)
+        self.img_prev = ImageTk.PhotoImage(
+            Image.open(base + "PREV.png").resize(BTN)
+        )
+        self.img_play = ImageTk.PhotoImage(
+            Image.open(base + "Play.png").resize(PLAY)
+        )
+        self.img_pause = ImageTk.PhotoImage(
+            Image.open(base + "PAUSE.png").resize(BTN)
+        )
+        self.img_next = ImageTk.PhotoImage(
+            Image.open(base + "NEXT.png").resize(BTN)
+        )
 
-        ttk.Button(
-            self,
-            text="Play",
-            width=10,
-            bootstyle="success",
-            command=self.core.play_current
-        ).place(x=650, y=btn_y)
+    def CreateButtons(self):
+        # ===== TOP MENU =====
+        self.btn_create = self.canvas.create_image(
+            350, 140, image=self.img_create, anchor="center"
+        )
+        self.btn_library = self.canvas.create_image(
+            650, 140, image=self.img_library, anchor="center"
+        )
+        self.btn_search = self.canvas.create_image(
+            950, 140, image=self.img_search, anchor="center"
+        )
 
-        ttk.Button(
-            self,
-            text="Pause",
-            width=10,
-            bootstyle="warning",
-            command=self.core.pause
-        ).place(x=760, y=btn_y)
+        y = 930
+        self.btn_prev = self.canvas.create_image(760, y, image=self.img_prev)
+        self.btn_play = self.canvas.create_image(900, y, image=self.img_play)
+        self.btn_pause = self.canvas.create_image(1040, y, image=self.img_pause)
+        self.btn_next = self.canvas.create_image(1180, y, image=self.img_next)
 
-        ttk.Button(
-            self,
-            text="Resume",
-            width=10,
-            bootstyle="info",
-            command=self.core.resume
-        ).place(x=870, y=btn_y)
+        self.canvas.tag_raise(self.btn_create)
+        self.canvas.tag_raise(self.btn_library)
+        self.canvas.tag_raise(self.btn_search)
+        self.canvas.tag_raise(self.btn_prev)
+        self.canvas.tag_raise(self.btn_play)
+        self.canvas.tag_raise(self.btn_pause)
+        self.canvas.tag_raise(self.btn_next)
 
-        ttk.Button(
-            self,
-            text="Prev",
-            width=10,
-            bootstyle="secondary",
-            command=self.core.prev_song
-        ).place(x=980, y=btn_y)
+        self.canvas.tag_bind(self.btn_create, "<Button-1>",
+                             lambda e: self.CreatePlaylist())
+        self.canvas.tag_bind(self.btn_library, "<Button-1>",
+                             lambda e: self.OpenLibrary())
+        self.canvas.tag_bind(self.btn_search, "<Button-1>",
+                             lambda e: self.SearchSong())
 
-        ttk.Button(
-            self,
-            text="Next",
-            width=10,
-            bootstyle="primary",
-            command=self.core.next_song
-        ).place(x=1090, y=btn_y)
+        self.canvas.tag_bind(self.btn_prev, "<Button-1>",
+                             lambda e: self.core.Prev())
+        self.canvas.tag_bind(self.btn_play, "<Button-1>",
+                             lambda e: self.core.PlayCurrent())
+        self.canvas.tag_bind(self.btn_pause, "<Button-1>",
+                             lambda e: self.core.Pause())
+        self.canvas.tag_bind(self.btn_next, "<Button-1>",
+                             lambda e: self.core.PlayNext())
 
-    # ================= CLAP CONTROL =================
-    def start_clap_control(self):
-        clap = ClapControl(self.core)
-        threading.Thread(
-            target=clap.listen,
-            daemon=True
-        ).start()
+    def CreatePlaylist(self):
+        name = tk.simpledialog.askstring(
+            "Create Playlist",
+            "Enter playlist name:"
+        )
+        if name:
+            self.db.CreatePlaylist(name)
 
-# ================= LOGIN WINDOW =================
+    def OpenLibrary(self):
+        playlists = self.db.GetPlaylists()
+        msg = "\n".join(playlists) if playlists else "No playlist"
+        tk.messagebox.showinfo("Library", msg)
+
+    def SearchSong(self):
+        keyword = tk.simpledialog.askstring(
+            "Search",
+            "Title / Artist / Genre:"
+        )
+        if not keyword:
+            return
+
+        songs = self.db.Search(keyword)
+        if songs:
+            self.core.SetQueue(songs)
+            self.core.PlayCurrent()
+
+    def CheckEnd(self):
+        for event in pygame.event.get():
+            if event.type == pygame.USEREVENT:
+                self.core.PlayNext()
+
+        self.after(200, self.CheckEnd)
+
+
 class App(ttk.Window):
     def __init__(self):
         super().__init__(themename="darkly")
@@ -202,60 +372,46 @@ class App(ttk.Window):
         self.geometry("1920x1080")
         self.resizable(False, False)
 
-        self.ShowHome()
-
-    def ShowHome(self):
-        bg_img = Image.open(
+        bg = Image.open(
             "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN LOGIN/LoginBG.png"
-        )
-        bg_img = bg_img.resize((1920, 1080))
-        self.bg_photo = ImageTk.PhotoImage(bg_img)
+        ).resize((1920, 1080))
+        self.bg_photo = ImageTk.PhotoImage(bg)
 
         ttk.Label(self, image=self.bg_photo).place(
             x=0, y=0, relwidth=1, relheight=1
         )
 
-        # ===== ADMIN BUTTON =====
-        admin_img = Image.open(
+        self.LoadButtons()
+
+    def LoadButtons(self):
+        self.admin_img = ImageTk.PhotoImage(Image.open(
             "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN LOGIN/AdminB.png"
-        )
-        admin_img = admin_img.resize((320, 120))
-        self.admin_photo = ImageTk.PhotoImage(admin_img)
+        ).resize((320, 120)))
+
+        self.user_img = ImageTk.PhotoImage(Image.open(
+            "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN LOGIN/UserB.png"
+        ).resize((320, 120)))
 
         tk.Button(
-            self,
-            image=self.admin_photo,
+            self, image=self.admin_img,
             borderwidth=0,
-            bg="#000000",
-            activebackground="#000000",
-            command=self.open_admin_window
+            command=self.OpenAdmin
         ).place(x=615, y=520, anchor="center")
 
-        # ===== USER BUTTON =====
-        user_img = Image.open(
-            "C:/Users/HP/PycharmProjects/TubesBesarSD/TUBES BESAR LUNA/HALAMAN LOGIN/UserB.png"
-        )
-        user_img = user_img.resize((320, 120))
-        self.user_photo = ImageTk.PhotoImage(user_img)
-
         tk.Button(
-            self,
-            image=self.user_photo,
+            self, image=self.user_img,
             borderwidth=0,
-            bg="#000000",
-            activebackground="#000000",
-            command=self.open_user_window
+            command=self.OpenUser
         ).place(x=1260, y=520, anchor="center")
 
-    def open_admin_window(self):
+    def OpenAdmin(self):
         self.destroy()
         AdminWindow().mainloop()
 
-    def open_user_window(self):
+    def OpenUser(self):
         self.destroy()
         UserWindow().mainloop()
 
 
-# ================= RUN =================
 if __name__ == "__main__":
     App().mainloop()
